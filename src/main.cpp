@@ -57,6 +57,12 @@ int main() {
             err = erp.queryGrad(tokens, count);
         } else if (tokens[0] == "ELIGIBLE") {
             err = erp.queryEligible(tokens, count);
+        } else if (tokens[0] == "TRANSCRIPT") {
+            err = erp.queryTranscript(tokens, count);
+        } else if (tokens[0] == "SAVE") {
+            err = erp.saveState(tokens, count);
+        } else if (tokens[0] == "LOAD") {
+            err = erp.loadState(tokens, count);
         } else {
             err = E_PARSE;
         }

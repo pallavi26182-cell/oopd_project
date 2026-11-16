@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cctype>
+#include <fstream>
 
 ProgramConfig::ProgramConfig()
     : totalCredits(160), electiveCredits(24), minGpaHundredths(500),
@@ -519,5 +520,129 @@ ErrorCode ERPSystem::queryEligible(const std::string tokens[], int count) const 
     } else {
         std::printf("ELIGIBLE %s %s NO E%d\n", students[s].roll.c_str(), courses[c].code.c_str(), check);
     }
+    return OK;
+}
+
+ErrorCode ERPSystem::queryTranscript(const std::string tokens[], int count) const {
+    if (count != 2) return E_PARSE;
+    if (tokens[1].length() > 10) return E_PARSE;
+    int s = findStudent(tokens[1]);
+    if (s == -1) return E_UNKNOWN_STUDENT;
+
+    int n = students[s].numRegs;
+    std::printf("TRANSCRIPT %s %d\n", students[s].roll.c_str(), n);
+
+    for (int t = 1; t <= 12; t++) {
+        for (int i = 0; i < n; i++) {
+            const Registration& r = students[s].regs[i];
+            if (r.term != t) continue;
+            const Course& crs = courses[r.course];
+            const char* gstr = r.grade.empty() ? "-" : r.grade.c_str();
+            if (crs.type == THESIS && r.thesis == IN_PROGRESS) {
+                gstr = "IN_PROGRESS";
+            }
+            std::printf("%d %s %s %d\n", r.term, crs.code.c_str(), gstr, crs.credits);
+        }
+    }
+    return OK;
+}
+
+ErrorCode ERPSystem::saveState(const std::string tokens[], int count) const {
+    if (count != 2) return E_PARSE;
+    std::ofstream out(tokens[1].c_str());
+    if (!out.is_open()) return E_PARSE;
+
+    out << "ACADERP_SAVE_V1\n";
+    out << config.totalCredits << " " << config.electiveCredits << " "
+        << config.minGpaHundredths << " " << config.maxLoad << " "
+        << config.thesisCredits << "\n";
+
+    out << numCourses << "\n";
+    for (int i = 0; i < numCourses; i++) {
+        out << courses[i].code << " " << (int)courses[i].type << " "
+            << courses[i].credits << " " << (courses[i].isCore ? 1 : 0) << " "
+            << courses[i].prereq << "\n";
+    }
+
+    out << numStudents << "\n";
+    for (int i = 0; i < numStudents; i++) {
+        out << students[i].roll << " " << students[i].name << " "
+            << students[i].numRegs << "\n";
+        for (int j = 0; j < students[i].numRegs; j++) {
+            const Registration& r = students[i].regs[j];
+            std::string g = r.grade.empty() ? "-" : r.grade;
+            out << r.course << " " << r.term << " " << g << " " << (int)r.thesis << "\n";
+        }
+    }
+    return out.good() ? OK : E_PARSE;
+}
+
+ErrorCode ERPSystem::loadState(const std::string tokens[], int count) {
+    if (count != 2) return E_PARSE;
+    std::ifstream in(tokens[1].c_str());
+    if (!in.is_open()) return E_PARSE;
+
+    std::string magic;
+    if (!(in >> magic) || magic != "ACADERP_SAVE_V1") return E_PARSE;
+
+    ProgramConfig tmpCfg;
+    if (!(in >> tmpCfg.totalCredits >> tmpCfg.electiveCredits
+             >> tmpCfg.minGpaHundredths >> tmpCfg.maxLoad >> tmpCfg.thesisCredits)) {
+        return E_PARSE;
+    }
+
+    int tmpNumCourses = 0;
+    if (!(in >> tmpNumCourses) || tmpNumCourses < 0 || tmpNumCourses > MAX_COURSES) return E_PARSE;
+
+    Course* tmpCourses = new Course[MAX_COURSES];
+    for (int i = 0; i < tmpNumCourses; i++) {
+        int tInt = 0, coreInt = 0;
+        if (!(in >> tmpCourses[i].code >> tInt >> tmpCourses[i].credits
+                 >> coreInt >> tmpCourses[i].prereq)) {
+            delete[] tmpCourses;
+            return E_PARSE;
+        }
+        if (tInt < 0 || tInt > 2) { delete[] tmpCourses; return E_PARSE; }
+        tmpCourses[i].type = (CourseType)tInt;
+        tmpCourses[i].isCore = (coreInt != 0);
+    }
+
+    int tmpNumStudents = 0;
+    if (!(in >> tmpNumStudents) || tmpNumStudents < 0 || tmpNumStudents > MAX_STUDENTS) {
+        delete[] tmpCourses;
+        return E_PARSE;
+    }
+
+    Student* tmpStudents = new Student[MAX_STUDENTS];
+    for (int i = 0; i < tmpNumStudents; i++) {
+        int nRegs = 0;
+        if (!(in >> tmpStudents[i].roll >> tmpStudents[i].name >> nRegs) ||
+            nRegs < 0 || nRegs > MAX_REGS) {
+            delete[] tmpCourses;
+            delete[] tmpStudents;
+            return E_PARSE;
+        }
+        tmpStudents[i].numRegs = nRegs;
+        for (int j = 0; j < nRegs; j++) {
+            std::string g;
+            int thInt = 0;
+            if (!(in >> tmpStudents[i].regs[j].course >> tmpStudents[i].regs[j].term >> g >> thInt) ||
+                thInt < 0 || thInt > 4) {
+                delete[] tmpCourses;
+                delete[] tmpStudents;
+                return E_PARSE;
+            }
+            tmpStudents[i].regs[j].grade = (g == "-") ? "" : g;
+            tmpStudents[i].regs[j].thesis = (ThesisState)thInt;
+        }
+    }
+
+    delete[] courses;
+    delete[] students;
+    config = tmpCfg;
+    courses = tmpCourses;
+    numCourses = tmpNumCourses;
+    students = tmpStudents;
+    numStudents = tmpNumStudents;
     return OK;
 }

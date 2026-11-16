@@ -112,6 +112,11 @@ public:
     ErrorCode queryAvg(const std::string tokens[], int count) const;
     ErrorCode queryGrad(const std::string tokens[], int count) const;
     ErrorCode queryEligible(const std::string tokens[], int count) const;
+
+    // Bonus commands
+    ErrorCode queryTranscript(const std::string tokens[], int count) const;
+    ErrorCode saveState(const std::string tokens[], int count) const;
+    ErrorCode loadState(const std::string tokens[], int count);
 };
 
 int splitTokens(const std::string& line, std::string tokens[], int maxTokens);

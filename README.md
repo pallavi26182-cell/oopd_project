@@ -92,3 +92,7 @@ If you are reviewing or extending this repository, follow this reading order:
 2. **Thesis Graduation Rule (`R4`):** Satisfied if at least one `THESIS` course is in `FINAL` state with a converted letter grade of `C` or better (`>= 6` grade points)[cite: 3]. A `D` grade earns credits (`R1`) and counts in GPA (`R5`)[cite: 2, 3], but fails `R4`[cite: 3].
 3. **Prerequisite Ordering:** Prerequisites must exist in the catalogue prior to defining a dependent course; self-referential or unknown prerequisites return `E_BAD_COURSE`[cite: 4, 5].
 4. **Cross-Platform Line Endings:** Trailing `\r` characters are stripped so CRLF test files created on Windows execute cleanly on Linux.
+
+5. **Bonus Commands (`TRANSCRIPT`, `SAVE`, `LOAD`):**
+   - `TRANSCRIPT <roll>` prints `TRANSCRIPT <roll> <count>` followed by each registration in ascending term order (`1..12`) as `<term> <course> <grade|-> <credits>`.
+   - `SAVE <file>` and `LOAD <file>` serialize and atomically restore the full ERP state (`ACADERP_SAVE_V1`), returning `E_PARSE` if the file is missing or malformed without corrupting existing records.
